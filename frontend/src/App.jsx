@@ -2,15 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const CITIES = [
-  "Atlanta (ATL)", "Austin (AUS)", "Baltimore (BWI)", "Boston (BOS)",
-  "Charlotte (CLT)", "Chicago (ORD)", "Dallas (DFW)", "Denver (DEN)",
-  "Detroit (DTW)", "Fort Lauderdale (FLL)", "Honolulu (HNL)", "Houston (IAH)",
-  "Las Vegas (LAS)", "Los Angeles (LAX)", "Miami (MIA)", "Minneapolis (MSP)",
-  "Nashville (BNA)", "New Orleans (MSY)", "New York (JFK)", "New York (LGA)",
-  "Newark (EWR)", "Oakland (OAK)", "Orlando (MCO)", "Philadelphia (PHL)",
-  "Phoenix (PHX)", "Portland (PDX)", "Salt Lake City (SLC)", "San Diego (SAN)",
-  "San Francisco (SFO)", "San Jose (SJC)", "Seattle (SEA)", "Tampa (TPA)",
-  "Toronto (YYZ)", "Vancouver (YVR)", "Washington (DCA)", "Washington (IAD)"
+  "Dallas (DFW)","Austin (AUS)","Houston (IAH)","Chicago (ORD)",
+  "Atlanta (ATL)","Los Angeles (LAX)","New York (JFK)","San Francisco (SFO)"
 ];
 
 function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
@@ -19,24 +12,21 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
-    const handler = (e) => {
+    const h = (e) => {
       if (!wrapRef.current || wrapRef.current.contains(e.target)) return;
       setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   useEffect(() => setInput(value || ""), [value]);
 
   const filtered = useMemo(() => {
     const q = input.trim().toLowerCase();
-    const list = q
-      ? options.filter((o) => o.toLowerCase().includes(q))
-      : options;
-    return list.slice(0, 12); // cap results
+    const list = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+    return list.slice(0, 12);
   }, [input, options]);
 
   const selectItem = (item) => {
@@ -59,9 +49,7 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (open && filtered[highlight]) selectItem(filtered[highlight]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
+    } else if (e.key === "Escape") setOpen(false);
   };
 
   return (
@@ -75,7 +63,7 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
           border: "1px solid #d1d5db",
           borderRadius: 10,
           padding: "10px 12px",
-          background: "white"
+          background: "white",
         }}
       >
         <input
@@ -93,7 +81,7 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
             border: "none",
             outline: "none",
             fontSize: 16,
-            background: "transparent"
+            background: "transparent",
           }}
         />
         {open && filtered.length > 0 && (
@@ -110,7 +98,7 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
               boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
               maxHeight: 260,
               overflowY: "auto",
-              zIndex: 20
+              zIndex: 20,
             }}
           >
             {filtered.map((item, i) => (
@@ -121,7 +109,7 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
                 style={{
                   padding: "10px 12px",
                   cursor: "pointer",
-                  background: i === highlight ? "#f3f4f6" : "white"
+                  background: i === highlight ? "#f3f4f6" : "white",
                 }}
               >
                 {item}
@@ -134,18 +122,78 @@ function AutocompleteSelect({ label, value, onChange, options, placeholder }) {
   );
 }
 
-function App() {
+function PrioritySelect({ value, onChange }) {
+  return (
+    <div style={{ width: "100%", maxWidth: 220 }}>
+      <label style={{ display: "block", fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
+        Priority
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          height: 44,
+          borderRadius: 10,
+          border: "1px solid #d1d5db",
+          background: "white",
+          padding: "0 12px",
+          fontSize: 16,
+        }}
+      >
+        <option value="T">Fastest (Time)</option>
+        <option value="C">Cheapest (Cost)</option>
+      </select>
+    </div>
+  );
+}
+
+export default function App() {
   const [fromCity, setFromCity] = useState("");
   const [toCity, setToCity] = useState("");
+  const [priority, setPriority] = useState("T");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const swap = () => {
     setFromCity(toCity);
     setToCity(fromCity);
   };
 
+  const normalizeCity = (s) => (s || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+  const onSearch = async () => {
+    const from = normalizeCity(fromCity);
+    const to = normalizeCity(toCity);
+    if (!from || !to) {
+      setError("Please choose both From and To.");
+      setResult(null);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    const req = new URLSearchParams({ from, to, priority }).toString();
+    try {
+      const res = await fetch(`/route?${req}`); // Vite proxy -> Flask :8000
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed");
+        return;
+      }
+      setResult(data);
+    } catch (e) {
+      console.error(e);
+      setError("Could not connect to server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
-      {/* Header */}
       <header
         style={{
           padding: "24px 20px",
@@ -155,7 +203,7 @@ function App() {
           background: "white",
           position: "sticky",
           top: 0,
-          zIndex: 10
+          zIndex: 10,
         }}
       >
         <div style={{ width: "100%", maxWidth: 1100 }}>
@@ -166,9 +214,9 @@ function App() {
         </div>
       </header>
 
-      {/* Search Bar */}
       <main style={{ display: "flex", justifyContent: "center", padding: "28px 20px" }}>
         <div
+          className="card"
           style={{
             width: "100%",
             maxWidth: 1100,
@@ -176,15 +224,15 @@ function App() {
             border: "1px solid #e5e7eb",
             borderRadius: 16,
             padding: 18,
-            boxShadow: "0 12px 36px rgba(0,0,0,0.06)"
           }}
         >
+          {/* Search row */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 60px 1fr 140px",
-              gap: 14,
-              alignItems: "end"
+              gridTemplateColumns: "1fr 56px 1fr 220px 140px",
+              gap: 12,
+              alignItems: "end",
             }}
           >
             <AutocompleteSelect
@@ -204,7 +252,7 @@ function App() {
                 border: "1px solid #d1d5db",
                 background: "white",
                 cursor: "pointer",
-                fontWeight: 700
+                fontWeight: 700,
               }}
             >
               ⇄
@@ -218,32 +266,105 @@ function App() {
               placeholder="Search destination…"
             />
 
-            <button
-              style={{
-                height: 44,
-                borderRadius: 10,
-                border: "none",
-                background: "#111827",
-                color: "white",
-                fontWeight: 700,
-                cursor: "pointer"
-              }}
-              onClick={() => alert(`Searching flights: ${fromCity} → ${toCity}`)}
-            >
-              Search
-            </button>
+            <PrioritySelect value={priority} onChange={setPriority} />
+
+            {/* spacer label to align button with inputs */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <label style={{ fontSize: 12, color: "#6b7280", height: 18 }}>&nbsp;</label>
+              <button
+                onClick={onSearch}
+                style={{
+                  height: 44,
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#0f172a",
+                  color: "white",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Search
+              </button>
+            </div>
           </div>
 
-          {/* Selection preview */}
           <div style={{ marginTop: 14, color: "#6b7280", fontSize: 14 }}>
             {fromCity && toCity
-              ? `Route selected: ${fromCity} → ${toCity}`
-              : "Pick your cities to get started."}
+              ? `Route: ${fromCity} → ${toCity} • Priority: ${priority}`
+              : "Pick your cities and priority."}
+          </div>
+
+          {/* Status & results */}
+          <div style={{ marginTop: 16 }}>
+            {loading && (
+              <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12 }}>
+                Finding best route…
+              </div>
+            )}
+
+            {error && (
+              <div
+                style={{
+                  padding: 12,
+                  border: "1px solid #fecaca",
+                  background: "#fef2f2",
+                  color: "#991b1b",
+                  borderRadius: 12,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {result && (
+              <div style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 16 }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 16,
+                    textAlign: "center",
+                    marginBottom: 6,
+                  }}
+                >
+                  Best by {result.priority === "T" ? "Time" : "Cost"}
+                </div>
+                <div style={{ color: "#374151", textAlign: "center", marginBottom: 10 }}>
+                  {result.path.join(" → ")}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: 24,
+                    color: "#6b7280",
+                    marginBottom: 10,
+                  }}
+                >
+                  <span>
+                    Time: <b style={{ color: "#111827" }}>{result.totalTime}</b>
+                  </span>
+                  <span>
+                    Cost: <b style={{ color: "#111827" }}>{result.totalCost}</b>
+                  </span>
+                </div>
+
+                {result.path.length > 1 && (
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    <div style={{ marginBottom: 4 }}>Legs:</div>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {result.path.slice(1).map((city, i) => (
+                        <li key={i}>
+                          {result.path[i]} → {city}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
     </div>
   );
 }
-
-export default App;

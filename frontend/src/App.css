@@ -40,3 +40,17 @@
 .read-the-docs {
   color: #888;
 }
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.06);
+}
+
+/* Responsive: stack inputs on small screens */
+@media (max-width: 860px) {
+  .search-grid {
+    grid-template-columns: 1fr;
+  }
+}
